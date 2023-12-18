@@ -77,10 +77,43 @@ sys_sleep(void)
 
 
 #ifdef LAB_PGTBL
+
 int
 sys_pgaccess(void)
 {
   // lab pgtbl: your code here.
+  // 获取当前进程的结构体指针,里面存储进程的状态,页表,打开的文件等
+  struct proc *p = myproc();
+  // 待检测页表的起始指针
+  uint64 usrpge_ptr;
+  // 待检测页表个数
+  int npage;
+  // 之后要写入的用户内存
+  uint64 useraddr;
+  argaddr(0, &usrpge_ptr);
+  argint(1, &npage);
+  argaddr(2, &useraddr);
+  // 一次最多检测的页表为64
+  if (npage > 64) {
+    return -1;
+  }
+  uint64 bitmap = 0;
+  uint64 mask = 1;
+  uint64 complement = PTE_A;
+  complement = ~complement; 
+  int count = 0;
+  for (uint64 page = usrpge_ptr; page < usrpge_ptr + npage * PGSIZE; page += PGSIZE) {
+    pte_t *pte = walk(p->pagetable, page, 0);
+    if (*pte & PTE_A) {
+      bitmap |= mask << count;
+      *pte = (*pte) & complement;
+    }
+    ++count;
+  }
+  // 将内核数据写回用户区
+  if (copyout(p->pagetable, useraddr, (char*)&bitmap, sizeof(bitmap)) < 0) {
+    return -1;
+  }
   return 0;
 }
 #endif
