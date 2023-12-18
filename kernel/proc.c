@@ -26,6 +26,20 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
+
+// 获取运行的进程数
+uint64
+count_process(void) {
+  uint64 cnt = 0;
+  for (struct proc *p = proc; p < &proc[NPROC]; ++p) {
+    // 无需锁，我们只读进程列表
+    if (p->state != UNUSED) {
+      ++cnt;
+    }
+  }
+  return cnt;
+}
+
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
 // guard page.
@@ -140,6 +154,8 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
+
+  p->syscall_trace = 0; // 为系统调用添加默认值
 
   return p;
 }
@@ -302,6 +318,8 @@ fork(void)
   np->cwd = idup(p->cwd);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
+
+  np->syscall_trace = p->syscall_trace; // 子进程继承父进程的参数
 
   pid = np->pid;
 
