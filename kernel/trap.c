@@ -77,8 +77,22 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
+  // 专门处理硬件定时中断
+  if(which_dev == 2) {
+    if (p->alarm_interval) {
+      if (--p->alarm_ticks_left <= 0) {
+        if (!p->alarm_handler_lock) {
+          // 备份当前帧
+          *p->alarm_backup = *p->trapframe;
+          // 更改返回地址
+          p->trapframe->epc = p->alarm_handler;
+          // 加锁
+          p->alarm_handler_lock = 1;
+        }
+      }
+    }
     yield();
+  }
 
   usertrapret();
 }
@@ -217,4 +231,3 @@ devintr()
     return 0;
   }
 }
-
